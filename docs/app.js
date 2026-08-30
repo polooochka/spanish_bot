@@ -11,7 +11,7 @@ const SYSTEM_PROMPT =
 
 const MODEL = "openai/gpt-oss-120b";
 
-import { VOICES, synthesize } from "./edge-tts.js";
+import { speak as speakGoogle, stopSpeaking } from "./tts.js";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const HISTORY_LIMIT = 10;
 
@@ -129,35 +129,31 @@ async function sendUserMessage(text) {
 }
 
 // ---------- tts ----------
-// Primary: edge-tts (same neural voices as the Telegram bot, free, no key).
-// Fallback: browser speechSynthesis with system Spanish voices.
-let currentAudio = null;
+// Primary: Google TTS (natural Spanish voice, no key, CORS-free via <audio>).
+// Optional: system Spanish voices from the settings dropdown.
+const GOOGLE_VOICE = "google";
 
-function speakWithEdge(text, voiceId, rate) {
-  return synthesize(text, voiceId, rate).then((blob) => {
-    currentAudio?.pause();
-    currentAudio = new Audio(URL.createObjectURL(blob));
-    return currentAudio.play();
-  });
-}
-
-function speakWithSystem(text) {
+function speakWithSystem(text, rate) {
   if (!("speechSynthesis" in window)) return;
-  const uri = store.get("system_voice_uri", "");
+  const uri = store.get("voice_key", "");
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "es-ES";
   const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === uri);
   if (voice) utter.voice = voice;
-  utter.rate = parseFloat(store.get("rate", "1"));
+  utter.rate = rate;
   speechSynthesis.speak(utter);
 }
 
 function speakText(text) {
   const clean = text.replace(/\([^)]*\)/g, " "); // skip correction notes
-  const voiceId = VOICES[store.get("voice_key", "dalia")][1];
   const rate = parseFloat(store.get("rate", "1"));
+  stopSpeaking();
   speechSynthesis.cancel();
-  speakWithEdge(clean, voiceId, rate).catch(() => speakWithSystem(clean));
+  if (store.get("voice_key", GOOGLE_VOICE) === GOOGLE_VOICE) {
+    speakGoogle(clean, rate).catch(() => speakWithSystem(clean, rate));
+  } else {
+    speakWithSystem(clean, rate);
+  }
 }
 
 // ---------- stt ----------
@@ -288,16 +284,27 @@ $("clearChatBtn").addEventListener("click", () => {
 function populateVoices() {
   const select = $("voiceSelect");
   select.innerHTML = "";
-  for (const [key, [label]] of Object.entries(VOICES)) {
+  const voices = speechSynthesis.getVoices().filter((v) =>
+    v.lang.toLowerCase().startsWith("es")
+  );
+
+  const google = document.createElement("option");
+  google.value = GOOGLE_VOICE;
+  google.textContent = "🗣 Google (recomendada)";
+  select.appendChild(google);
+  for (const v of voices) {
     const opt = document.createElement("option");
-    opt.value = key;
-    opt.textContent = label;
+    opt.value = v.voiceURI;
+    opt.textContent = `${v.name} (${v.lang}) — del sistema`;
     select.appendChild(opt);
   }
-  const saved = store.get("voice_key", "dalia");
-  select.value = VOICES[saved] ? saved : "dalia";
+  const saved = store.get("voice_key", GOOGLE_VOICE);
+  select.value = saved;
+  if (select.selectedIndex === -1) {
+    select.value = GOOGLE_VOICE; // stale saved key from an older version
+  }
 }
-speechSynthesis.onvoiceschanged = () => {}; // system voices only used as fallback
+speechSynthesis.onvoiceschanged = populateVoices; // system voice list loads async
 
 $("rateRange").addEventListener("input", (e) => {
   $("rateVal").textContent = parseFloat(e.target.value).toFixed(2).replace(/0$/, "");

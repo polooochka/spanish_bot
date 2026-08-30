@@ -106,17 +106,17 @@ async function sendUserMessage(text) {
 
   addBubble("user", text);
   history.push({ role: "user", content: text });
-  history = history.slice(-HISTORY_LIMIT);
+  store.set("chat_history", JSON.stringify(history));
 
   const typing = addBubble("assistant", "escribiendo…", { typing: true });
   statusEl.textContent = "escribiendo…";
 
   try {
-    const answer = await chat(history);
+    // The LLM only sees the last few turns; the saved history keeps everything.
+    const answer = await chat(history.slice(-HISTORY_LIMIT));
     typing.remove();
     const bubble = addBubble("assistant", answer);
     history.push({ role: "assistant", content: answer });
-    history = history.slice(-HISTORY_LIMIT);
     store.set("chat_history", JSON.stringify(history));
     if (replyMode === "voice") attachPlayer(answer, bubble);
   } catch (err) {

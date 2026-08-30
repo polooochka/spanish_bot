@@ -161,72 +161,85 @@ function speakText(text) {
 }
 
 // ---------- stt ----------
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition = null;
+// MediaRecorder + Groq Whisper — same free STT as the Telegram bot.
+// Works on Windows/Android in Chrome, Edge and Firefox; no OS language packs
+// needed. Recording: first tap starts, second tap stops and sends.
+let mediaRecorder = null;
+let audioChunks = [];
 let recording = false;
-let pendingLocales = []; // locales left to try when one is rejected
-let gotResult = false;
 
-const ES_LOCALES = ["es-ES", "es", "es-MX", "es-US"]; // first accepted one is remembered
-
-if (SpeechRecognition) {
-  recognition = new SpeechRecognition();
-  recognition.lang = store.get("stt_locale", "es-ES");
-  recognition.interimResults = true;
-  recognition.continuous = false;
-
-  recognition.onresult = (e) => {
-    gotResult = true;
-    let transcript = "";
-    for (const r of e.results) transcript += r[0].transcript;
-    inputEl.value = transcript;
-    if (e.results[e.results.length - 1].isFinal) sendUserMessage(transcript);
-  };
-  recognition.onerror = (e) => {
-    // Some browser/OS combos reject certain locale tags — try the next one.
-    if (e.error === "language-not-supported" && pendingLocales.length) {
-      recognition.lang = pendingLocales.shift();
-      store.set("stt_locale", recognition.lang);
-      try {
-        recognition.start();
-        return;
-      } catch {}
-    }
-    if (e.error !== "aborted" && e.error !== "no-speech") {
-      addBubble("assistant", `No pude escucharte (${e.error}). Intenta de nuevo.`, { error: true });
-    }
-  };
-  recognition.onend = () => {
-    recording = false;
-    $("micBtn").classList.remove("recording");
-  };
+async function transcribeBlob(blob) {
+  const key = store.get("groq_key", "");
+  if (!key) throw new Error("Falta la API key (⚙️ Ajustes).");
+  const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+  const form = new FormData();
+  form.append("file", blob, `audio.${ext}`);
+  form.append("model", "whisper-large-v3-turbo");
+  form.append("language", "es");
+  const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Groq ${res.status}`);
+  const data = await res.json();
+  return (data.text || "").trim();
 }
 
-$("micBtn").addEventListener("click", () => {
-  if (!recognition) {
+$("micBtn").addEventListener("click", async () => {
+  if (recording) {
+    mediaRecorder?.stop();
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
     addBubble(
       "assistant",
-      "Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge, o escribe tu mensaje.",
+      "Tu navegador no soporta grabación de audio. Actualiza tu navegador o escribe tu mensaje.",
       { error: true }
     );
     return;
   }
-  if (recording) {
-    recognition.stop();
-  } else {
-    speechSynthesis.cancel();
-    // Build retry list: remembered locale first, then the other Spanish tags.
-    const saved = store.get("stt_locale", "es-ES");
-    recognition.lang = saved;
-    pendingLocales = ES_LOCALES.filter((l) => l !== saved);
-    gotResult = false;
-    recording = true;
-    $("micBtn").classList.add("recording");
-    inputEl.value = "";
-    inputEl.placeholder = "🎧 Escuchando…";
-    recognition.start();
-    setTimeout(() => (inputEl.placeholder = "Escribe en español…"), 100);
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    addBubble("assistant", `No tengo acceso al micrófono (${err.name}). Revisa los permisos.`, { error: true });
+    return;
   }
+
+  speechSynthesis.cancel();
+  audioChunks = [];
+  const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : "";
+  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  recording = true;
+  $("micBtn").classList.add("recording");
+  inputEl.placeholder = "🎧 Habla… toca de nuevo para enviar";
+
+  mediaRecorder.ondataavailable = (e) => e.data.size && audioChunks.push(e.data);
+  mediaRecorder.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    recording = false;
+    $("micBtn").classList.remove("recording");
+    inputEl.placeholder = "Transcribiendo…";
+
+    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+    try {
+      const text = await transcribeBlob(blob);
+      if (text) {
+        await sendUserMessage(text);
+      } else {
+        addBubble("assistant", "No escuché nada. Intenta de nuevo. 🙏", { error: true });
+      }
+    } catch (err) {
+      addBubble("assistant", `No pude transcribir: ${err.message}`, { error: true });
+    } finally {
+      inputEl.value = "";
+      inputEl.placeholder = "Escribe en español…";
+    }
+  };
+  mediaRecorder.start();
 });
 
 // ---------- input ----------

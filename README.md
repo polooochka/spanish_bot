@@ -52,8 +52,9 @@ The same tutor as a static website, deployable on **GitHub Pages** with no backe
 - **No secrets in the site (BYOK):** each visitor enters their own free Groq API
   key in ⚙️ Ajustes. It's kept in `localStorage` and only ever sent to
   `api.groq.com` directly from the browser. The repo ships zero keys.
-- **Voice input:** Web Speech API `SpeechRecognition` (Chrome/Edge; not
-  supported in Firefox or desktop Safari).
+- **Voice input:** recorded with `MediaRecorder` and transcribed by the same
+  free Groq Whisper model the Telegram bot uses — works in Chrome, Edge and
+  Firefox on Windows and Android, no OS language packs required.
 - **Voice replies:** Web Speech API `speechSynthesis` using your system's
   Spanish voices — free and offline. Toggle 🔊/💬 in the header to switch
   between voice and text replies.

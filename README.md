@@ -45,7 +45,7 @@ Text messages also work — you'll still get a voice reply.
 - edge-tts is an unofficial free Microsoft endpoint; if it ever breaks,
   swap `tts.py` for Google Cloud TTS free tier with minimal changes.
 
-## Web version (`web/`)
+## Web version (`docs/`)
 
 The same tutor as a static website, deployable on **GitHub Pages** with no backend.
 
@@ -60,7 +60,7 @@ The same tutor as a static website, deployable on **GitHub Pages** with no backe
 
 ### Deploy
 1. Push this repo to GitHub.
-2. Repo → Settings → Pages → Source: `main`, folder `/web`.
+2. Repo → Settings → Pages → Source: `main`, folder `/docs`.
 3. Open the published URL, click ⚙️, paste a key from
    [console.groq.com/keys](https://console.groq.com/keys), pick a voice, done.
 

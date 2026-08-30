@@ -164,21 +164,35 @@ function speakText(text) {
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 let recording = false;
+let pendingLocales = []; // locales left to try when one is rejected
+let gotResult = false;
+
+const ES_LOCALES = ["es-ES", "es", "es-MX", "es-US"]; // first accepted one is remembered
 
 if (SpeechRecognition) {
   recognition = new SpeechRecognition();
-  recognition.lang = "es-ES";
+  recognition.lang = store.get("stt_locale", "es-ES");
   recognition.interimResults = true;
   recognition.continuous = false;
 
   recognition.onresult = (e) => {
+    gotResult = true;
     let transcript = "";
     for (const r of e.results) transcript += r[0].transcript;
     inputEl.value = transcript;
     if (e.results[e.results.length - 1].isFinal) sendUserMessage(transcript);
   };
   recognition.onerror = (e) => {
-    if (e.error !== "aborted") {
+    // Some browser/OS combos reject certain locale tags — try the next one.
+    if (e.error === "language-not-supported" && pendingLocales.length) {
+      recognition.lang = pendingLocales.shift();
+      store.set("stt_locale", recognition.lang);
+      try {
+        recognition.start();
+        return;
+      } catch {}
+    }
+    if (e.error !== "aborted" && e.error !== "no-speech") {
       addBubble("assistant", `No pude escucharte (${e.error}). Intenta de nuevo.`, { error: true });
     }
   };
@@ -201,6 +215,11 @@ $("micBtn").addEventListener("click", () => {
     recognition.stop();
   } else {
     speechSynthesis.cancel();
+    // Build retry list: remembered locale first, then the other Spanish tags.
+    const saved = store.get("stt_locale", "es-ES");
+    recognition.lang = saved;
+    pendingLocales = ES_LOCALES.filter((l) => l !== saved);
+    gotResult = false;
     recording = true;
     $("micBtn").classList.add("recording");
     inputEl.value = "";

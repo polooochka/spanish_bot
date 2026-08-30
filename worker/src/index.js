@@ -61,8 +61,6 @@ async function synthesize(text, voice, rate) {
     headers: {
       Connection: "Upgrade",
       Upgrade: "websocket",
-      "Sec-WebSocket-Version": "13",
-      "Sec-WebSocket-Key": btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16)))),
       Pragma: "no-cache",
       "Cache-Control": "no-cache",
       Origin: "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
@@ -89,7 +87,9 @@ async function synthesize(text, voice, rate) {
     ws.onclose = () => {
       if (!settled) fail("upstream closed early");
     };
-    ws.onopen = () => {
+    // With a fetch-upgrade socket the 'open' event never fires — the socket
+    // is already open — so send immediately.
+    {
       const timestamp = jsDate();
       ws.send(
         `X-Timestamp:${timestamp}\r\n` +
@@ -111,7 +111,7 @@ async function synthesize(text, voice, rate) {
           `X-Timestamp:${timestamp}Z\r\n` + // trailing Z is an Edge bug we replicate
           "Path:ssml\r\n\r\n" + ssml
       );
-    };
+    }
     ws.onmessage = (e) => {
       if (typeof e.data === "string") {
         if (e.data.includes("Path:turn.end")) {

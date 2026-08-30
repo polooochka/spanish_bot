@@ -55,16 +55,25 @@ async function synthesize(text, voice, rate) {
     `${WSS_URL}?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}` +
     `&Sec-MS-GEC=${gec}&Sec-MS-GEC-Version=1-${CHROMIUM_VERSION}`;
 
+  // Workers' WebSocket constructor can't set headers — upgrade via fetch.
+  const upstream = await fetch(url, {
+    headers: {
+      Connection: "Upgrade",
+      Upgrade: "websocket",
+      "Sec-WebSocket-Version": "13",
+      "Sec-WebSocket-Key": btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16)))),
+      Pragma: "no-cache",
+      "Cache-Control": "no-cache",
+      Origin: "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
+    },
+  });
+  if (!upstream.webSocket) throw new Error("upgrade failed");
+
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(url, {
-      headers: {
-        Pragma: "no-cache",
-        "Cache-Control": "no-cache",
-        Origin: "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
-      },
-    });
+    const ws = upstream.webSocket;
+    ws.accept();
     ws.binaryType = "arraybuffer";
     const chunks = [];
     let settled = false;

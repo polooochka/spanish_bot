@@ -50,32 +50,26 @@ async function fetchChunk(workerUrl, chunk, voiceId, rate) {
   return blob;
 }
 
-// Generation counter: bumping it cancels whatever was mid-playback.
+// Generation counter: bumping it cancels whatever was mid-flight.
 let generation = 0;
 
 /**
- * Speak text aloud with edge-tts via the Worker. Throws on failure —
- * the caller falls back to the system voice.
+ * Synthesize the whole text to ONE mp3 Blob (chunks fetched in order and
+ * concatenated — MP3 frames join cleanly). Throws on failure — the caller
+ * falls back to the system voice.
  */
-export async function speak(text, { workerUrl, voiceId, rate = 1 } = {}) {
+export async function synthesizeAll(text, { workerUrl, voiceId, rate = 1 } = {}) {
   if (!workerUrl) throw new Error("no worker URL configured");
   const gen = ++generation;
-  const chunks = splitIntoChunks(text);
-  for (let i = 0; i < chunks.length; i++) {
-    if (gen !== generation) return; // superseded by a newer request
-    const blob = await fetchChunk(workerUrl, chunks[i], voiceId, rate);
-    if (gen !== generation) return;
-    await new Promise((resolve) => {
-      const audio = new Audio(URL.createObjectURL(blob));
-      audio.playbackRate = rate;
-      audio.onended = resolve;
-      audio.onerror = resolve; // skip bad chunk rather than break the chat
-      audio.play().catch(resolve);
-    });
+  const parts = [];
+  for (const chunk of splitIntoChunks(text)) {
+    if (gen !== generation) throw new Error("cancelled");
+    parts.push(await fetchChunk(workerUrl, chunk, voiceId, rate));
   }
+  return new Blob(parts, { type: "audio/mpeg" });
 }
 
-/** Cancel any in-flight playback. */
-export function stopSpeaking() {
+/** Cancel any in-flight synthesis (does not stop already-playing audio). */
+export function cancelSynthesis() {
   generation++;
 }

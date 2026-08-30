@@ -11,7 +11,7 @@ const SYSTEM_PROMPT =
 
 const MODEL = "openai/gpt-oss-120b";
 
-import { VOICES, speak as speakEdge, stopSpeaking } from "./tts.js";
+import { VOICES, synthesizeAll, cancelSynthesis } from "./tts.js";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const HISTORY_LIMIT = 10;
 
@@ -51,9 +51,9 @@ function addBubble(role, text, { typing = false, error = false } = {}) {
   if (role === "assistant" && !typing) {
     const speak = document.createElement("span");
     speak.className = "speak-again";
-    speak.title = "Escuchar de nuevo";
+    speak.title = "Escuchar / repetir";
     speak.textContent = "🔊";
-    speak.addEventListener("click", () => speakText(text));
+    speak.addEventListener("click", () => attachPlayer(text, div, speak));
     div.appendChild(speak);
   }
 
@@ -114,11 +114,11 @@ async function sendUserMessage(text) {
   try {
     const answer = await chat(history);
     typing.remove();
-    addBubble("assistant", answer);
+    const bubble = addBubble("assistant", answer);
     history.push({ role: "assistant", content: answer });
     history = history.slice(-HISTORY_LIMIT);
     store.set("chat_history", JSON.stringify(history));
-    if (replyMode === "voice") speakText(answer);
+    if (replyMode === "voice") attachPlayer(answer, bubble);
   } catch (err) {
     typing.remove();
     addBubble("assistant", `Error: ${err.message}`, { error: true });
@@ -130,6 +130,8 @@ async function sendUserMessage(text) {
 
 // ---------- tts ----------
 // Primary: edge-tts via our free Cloudflare Worker (see worker/).
+// Each reply gets its own inline <audio controls> player (seek/replay).
+// Only one player may sound at a time: starting one pauses all others.
 // Fallback: system Spanish voices.
 
 function speakWithSystem(text, rate) {
@@ -140,16 +142,56 @@ function speakWithSystem(text, rate) {
   speechSynthesis.speak(utter);
 }
 
-function speakText(text) {
+const players = new Set();
+
+function makePlayer(blob, bubble) {
+  const audio = new Audio(URL.createObjectURL(blob));
+  audio.controls = true;
+  audio.className = "player";
+  audio.preload = "auto";
+  players.add(audio);
+  // Enforce "only one voice at a time".
+  audio.addEventListener("play", () => {
+    speechSynthesis.cancel();
+    for (const other of players) {
+      if (other !== audio && !other.paused) other.pause();
+    }
+  });
+  bubble.appendChild(audio);
+  return audio;
+}
+
+async function attachPlayer(text, bubble, speakBtn) {
   const clean = text.replace(/\([^)]*\)/g, " "); // skip correction notes
+  const existing = bubble.querySelector("audio.player");
+  if (existing) {
+    // toggle: replay from the start if finished, otherwise play/pause
+    if (existing.paused) {
+      if (existing.ended) existing.currentTime = 0;
+      existing.play();
+    } else {
+      existing.pause();
+    }
+    return;
+  }
   const rate = parseFloat(store.get("rate", "1"));
   const voiceId = VOICES[store.get("voice_key", "dalia")][1];
   const workerUrl = store.get("worker_url", "");
-  stopSpeaking();
+  cancelSynthesis();
   speechSynthesis.cancel();
-  speakEdge(clean, { workerUrl, voiceId, rate }).catch(() =>
-    speakWithSystem(clean, rate)
-  );
+  if (!workerUrl) {
+    speakWithSystem(clean, rate);
+    return;
+  }
+  if (speakBtn) speakBtn.textContent = "⏳";
+  try {
+    const blob = await synthesizeAll(clean, { workerUrl, voiceId, rate });
+    makePlayer(blob, bubble).play();
+  } catch {
+    speakWithSystem(clean, rate);
+  } finally {
+    if (speakBtn) speakBtn.textContent = "🔊";
+  }
 }
 
 // ---------- stt ----------
@@ -200,6 +242,7 @@ $("micBtn").addEventListener("click", async () => {
   }
 
   speechSynthesis.cancel();
+  for (const p of players) p.pause(); // mic and playback don't mix
   audioChunks = [];
   const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
     ? "audio/webm;codecs=opus"

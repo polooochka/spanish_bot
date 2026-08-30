@@ -95,6 +95,12 @@ body {
 }
 .bubble.assistant .speak-again:hover { opacity: 1; }
 .bubble.typing { color: var(--muted); font-style: italic; }
+.bubble.assistant audio.player {
+  display: block;
+  margin-top: 8px;
+  width: 260px;
+  height: 36px;
+}
 .bubble.error { background: #4a2430; }
 
 /* Input bar */

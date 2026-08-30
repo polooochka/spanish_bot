@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(.venv/Scripts/python -)"
+      "Bash(.venv/Scripts/python -)",
+      "Bash(python -c 'import urllib.parse,sys;print\\(urllib.parse.quote\\(sys.argv[1],safe='\\\\'''\\\\''\\)\\)' 'https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=es&q=Hola')",
+      "Bash(curl -s -o /dev/null -w 'allorigins retry: %{http_code} %{size_download}\\\\n' https://api.allorigins.win/raw?url=__CMDSUB_OUTPUT__)",
+      "Bash(curl -s -o /dev/null -w 'cors.lol: %{http_code} %{size_download}\\\\n' https://api.cors.lol/?url=__CMDSUB_OUTPUT__)",
+      "Bash(python -c 'import urllib.parse,sys;print\\(sys.argv[1]\\)' 'https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=es&q=Hola')",
+      "Bash(curl -s -o /dev/null -w 'isomorphic-git cors: %{http_code} %{size_download}\\\\n' https://cors.isomorphic-git.org/__CMDSUB_OUTPUT__)"
     ]
   }
 }

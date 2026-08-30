@@ -55,15 +55,28 @@ The same tutor as a static website, deployable on **GitHub Pages** with no backe
 - **Voice input:** recorded with `MediaRecorder` and transcribed by the same
   free Groq Whisper model the Telegram bot uses — works in Chrome, Edge and
   Firefox on Windows and Android, no OS language packs required.
-- **Voice replies:** Web Speech API `speechSynthesis` using your system's
-  Spanish voices — free and offline. Toggle 🔊/💬 in the header to switch
-  between voice and text replies.
+- **Voice replies:** the same natural edge-tts voices as the Telegram bot,
+  relayed by a tiny free **Cloudflare Worker** (`worker/`, no secrets, no
+  credit card). Browsers can't call edge-tts directly: Microsoft's endpoint
+  requires an `Origin: chrome-extension://…` header that pages can't set, and
+  Google's TTS 404s any request carrying a non-Google Origin. Without a
+  Worker URL configured, the site falls back to the system's Spanish voices.
 
 ### Deploy
 1. Push this repo to GitHub.
 2. Repo → Settings → Pages → Source: `main`, folder `/docs`.
-3. Open the published URL, click ⚙️, paste a key from
-   [console.groq.com/keys](https://console.groq.com/keys), pick a voice, done.
+3. **Deploy the TTS Worker** (one time, ~5 min):
+   - Create a free [Cloudflare account](https://dash.cloudflare.com/sign-up) (no card).
+   - `npm install -g wrangler`, then `wrangler login`.
+   - `cd worker && wrangler deploy` — it prints your Worker URL
+     (`https://spanish-tutor-tts.<your-subdomain>.workers.dev`).
+4. Open the published Pages URL, click ⚙️, paste a key from
+   [console.groq.com/keys](https://console.groq.com/keys), paste the Worker
+   URL, pick a voice, done.
+
+Quick Worker check: open
+`https://<your-worker>.workers.dev/tts?text=Hola&voice=es-MX-DaliaNeural`
+in a browser — it should download a spoken MP3.
 
 ### Run locally
 ```

@@ -43,9 +43,13 @@
         Se guarda solo en tu navegador (localStorage) y solo se envía a api.groq.com.
       </p>
 
+      <label for="workerUrl">URL del Worker TTS</label>
+      <input id="workerUrl" type="url" placeholder="https://spanish-tutor-tts.tu-cuenta.workers.dev" autocomplete="off" />
+      <p class="hint">Despliega el Worker gratuito de la carpeta <code>worker/</code> del repo (1 comando, sin tarjeta) y pega aquí su URL. Sin esto se usa la voz del sistema.</p>
+
       <label for="voiceSelect">Voz</label>
       <select id="voiceSelect"></select>
-      <p class="hint">Voz de Google (natural, gratis) o las voces españolas de tu sistema.</p>
+      <p class="hint">Las mismas voces naturales que el bot de Telegram.</p>
 
       <label for="rateRange">Velocidad: <span id="rateVal">1.0</span>x</label>
       <input id="rateRange" type="range" min="0.75" max="1.25" step="0.05" value="1" />

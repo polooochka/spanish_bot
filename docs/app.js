@@ -11,7 +11,7 @@ const SYSTEM_PROMPT =
 
 const MODEL = "openai/gpt-oss-120b";
 
-import { speak as speakGoogle, stopSpeaking } from "./tts.js";
+import { VOICES, speak as speakEdge, stopSpeaking } from "./tts.js";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const HISTORY_LIMIT = 10;
 
@@ -129,17 +129,13 @@ async function sendUserMessage(text) {
 }
 
 // ---------- tts ----------
-// Primary: Google TTS (natural Spanish voice, no key, CORS-free via <audio>).
-// Optional: system Spanish voices from the settings dropdown.
-const GOOGLE_VOICE = "google";
+// Primary: edge-tts via our free Cloudflare Worker (see worker/).
+// Fallback: system Spanish voices.
 
 function speakWithSystem(text, rate) {
   if (!("speechSynthesis" in window)) return;
-  const uri = store.get("voice_key", "");
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "es-ES";
-  const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === uri);
-  if (voice) utter.voice = voice;
   utter.rate = rate;
   speechSynthesis.speak(utter);
 }
@@ -147,13 +143,13 @@ function speakWithSystem(text, rate) {
 function speakText(text) {
   const clean = text.replace(/\([^)]*\)/g, " "); // skip correction notes
   const rate = parseFloat(store.get("rate", "1"));
+  const voiceId = VOICES[store.get("voice_key", "dalia")][1];
+  const workerUrl = store.get("worker_url", "");
   stopSpeaking();
   speechSynthesis.cancel();
-  if (store.get("voice_key", GOOGLE_VOICE) === GOOGLE_VOICE) {
-    speakGoogle(clean, rate).catch(() => speakWithSystem(clean, rate));
-  } else {
-    speakWithSystem(clean, rate);
-  }
+  speakEdge(clean, { workerUrl, voiceId, rate }).catch(() =>
+    speakWithSystem(clean, rate)
+  );
 }
 
 // ---------- stt ----------
@@ -264,11 +260,13 @@ modeBtn.addEventListener("click", () => {
 // ---------- settings ----------
 function openSettings() {
   $("apiKey").value = store.get("groq_key", "");
+  $("workerUrl").value = store.get("worker_url", "");
   $("settingsModal").classList.remove("hidden");
 }
 $("settingsBtn").addEventListener("click", openSettings);
 $("closeSettingsBtn").addEventListener("click", () => {
   store.set("groq_key", $("apiKey").value.trim());
+  store.set("worker_url", $("workerUrl").value.trim().replace(/\/$/, ""));
   store.set("voice_key", $("voiceSelect").value);
   store.set("rate", $("rateRange").value);
   $("settingsModal").classList.add("hidden");
@@ -284,25 +282,14 @@ $("clearChatBtn").addEventListener("click", () => {
 function populateVoices() {
   const select = $("voiceSelect");
   select.innerHTML = "";
-  const voices = speechSynthesis.getVoices().filter((v) =>
-    v.lang.toLowerCase().startsWith("es")
-  );
-
-  const google = document.createElement("option");
-  google.value = GOOGLE_VOICE;
-  google.textContent = "🗣 Google (recomendada)";
-  select.appendChild(google);
-  for (const v of voices) {
+  for (const [key, [label]] of Object.entries(VOICES)) {
     const opt = document.createElement("option");
-    opt.value = v.voiceURI;
-    opt.textContent = `${v.name} (${v.lang}) — del sistema`;
+    opt.value = key;
+    opt.textContent = label;
     select.appendChild(opt);
   }
-  const saved = store.get("voice_key", GOOGLE_VOICE);
-  select.value = saved;
-  if (select.selectedIndex === -1) {
-    select.value = GOOGLE_VOICE; // stale saved key from an older version
-  }
+  const saved = store.get("voice_key", "dalia");
+  select.value = VOICES[saved] ? saved : "dalia";
 }
 speechSynthesis.onvoiceschanged = populateVoices; // system voice list loads async
 

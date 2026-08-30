@@ -1,0 +1,180 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0f1420;
+  --panel: #1a2130;
+  --bubble-user: #2b5278;
+  --bubble-ai: #22303f;
+  --text: #e8edf4;
+  --muted: #8a97a8;
+  --accent: #4fa3e3;
+  --danger: #e05555;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100dvh;
+  display: flex;
+  justify-content: center;
+}
+
+.app {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid #263045;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.header h1 { font-size: 1rem; font-weight: 600; }
+.avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: grid; place-items: center;
+  font-size: 1.2rem;
+}
+.status { font-size: 0.75rem; color: var(--muted); }
+.mode-btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid #33415a;
+  border-radius: 18px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.mode-btn:hover { border-color: var(--accent); }
+
+/* Chat */
+.chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.bubble.user {
+  align-self: flex-end;
+  background: var(--bubble-user);
+  border-bottom-right-radius: 4px;
+}
+.bubble.assistant {
+  align-self: flex-start;
+  background: var(--bubble-ai);
+  border-bottom-left-radius: 4px;
+}
+.bubble.assistant .speak-again {
+  display: inline-block;
+  margin-left: 8px;
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 0.85rem;
+}
+.bubble.assistant .speak-again:hover { opacity: 1; }
+.bubble.typing { color: var(--muted); font-style: italic; }
+.bubble.error { background: #4a2430; }
+
+/* Input bar */
+.inputbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background: var(--panel);
+  border-top: 1px solid #263045;
+}
+.icon-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  color: var(--text);
+}
+.icon-btn:hover { background: #263045; }
+.mic.recording { background: var(--danger); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { transform: scale(1.12); } }
+.send { color: var(--accent); font-size: 1.4rem; }
+
+#msgInput {
+  flex: 1;
+  background: #0d1220;
+  border: 1px solid #33415a;
+  border-radius: 22px;
+  padding: 10px 16px;
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+}
+#msgInput:focus { border-color: var(--accent); }
+
+/* Modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  z-index: 10;
+}
+.modal.hidden { display: none; }
+.modal-card {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 24px;
+  width: min(440px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.modal-card h2 { font-size: 1.1rem; margin-bottom: 8px; }
+.modal-card label { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+.modal-card input[type="password"],
+.modal-card select {
+  background: #0d1220;
+  border: 1px solid #33415a;
+  border-radius: 8px;
+  padding: 10px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.hint { font-size: 0.78rem; color: var(--muted); }
+.hint a { color: var(--accent); }
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  gap: 8px;
+}
+.modal-actions button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border: none;
+}
+.primary { background: var(--accent); color: #08131f; font-weight: 600; }
+.secondary { background: transparent; color: var(--muted); border: 1px solid #33415a !important; }

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutor de Español</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-left">
+        <div class="avatar">🇪🇸</div>
+        <div>
+          <h1>Tutor de Español</h1>
+          <span id="status" class="status">en línea</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button id="replyModeBtn" class="mode-btn" title="Cambiar tipo de respuesta">🔊 Voz</button>
+        <button id="settingsBtn" class="icon-btn" title="Ajustes">⚙️</button>
+      </div>
+    </header>
+
+    <main id="chat" class="chat"></main>
+
+    <footer class="inputbar">
+      <button id="micBtn" class="icon-btn mic" title="Hablar en español">🎤</button>
+      <input id="msgInput" type="text" placeholder="Escribe en español…" autocomplete="off" />
+      <button id="sendBtn" class="icon-btn send" title="Enviar">➤</button>
+    </footer>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Ajustes</h2>
+
+      <label for="apiKey">Groq API key</label>
+      <input id="apiKey" type="password" placeholder="gsk_…" autocomplete="off" />
+      <p class="hint">
+        Gratis en <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>.
+        Se guarda solo en tu navegador (localStorage) y solo se envía a api.groq.com.
+      </p>
+
+      <label for="voiceSelect">Voz</label>
+      <select id="voiceSelect"></select>
+      <p class="hint">Las voces disponibles dependen de tu sistema operativo y navegador.</p>
+
+      <label for="rateRange">Velocidad: <span id="rateVal">1.0</span>x</label>
+      <input id="rateRange" type="range" min="0.75" max="1.25" step="0.05" value="1" />
+
+      <div class="modal-actions">
+        <button id="clearChatBtn" class="secondary">🗑 Nueva conversación</button>
+        <button id="closeSettingsBtn" class="primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

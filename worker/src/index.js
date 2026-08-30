@@ -55,8 +55,9 @@ async function synthesize(text, voice, rate) {
     `${WSS_URL}?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}` +
     `&Sec-MS-GEC=${gec}&Sec-MS-GEC-Version=1-${CHROMIUM_VERSION}`;
 
-  // Workers' WebSocket constructor can't set headers — upgrade via fetch.
-  const upstream = await fetch(url, {
+  // Workers' WebSocket constructor can't set headers — upgrade via fetch
+  // (which wants an https:// URL, not wss://).
+  const upstream = await fetch(url.replace("wss://", "https://"), {
     headers: {
       Connection: "Upgrade",
       Upgrade: "websocket",

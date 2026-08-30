@@ -10,6 +10,8 @@ const SYSTEM_PROMPT =
   "gustos o planes. Nunca uses markdown ni emojis.";
 
 const MODEL = "openai/gpt-oss-120b";
+
+import { VOICES, synthesize } from "./edge-tts.js";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const HISTORY_LIMIT = 10;
 
@@ -127,24 +129,35 @@ async function sendUserMessage(text) {
 }
 
 // ---------- tts ----------
-function getSpanishVoices() {
-  return speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("es"));
+// Primary: edge-tts (same neural voices as the Telegram bot, free, no key).
+// Fallback: browser speechSynthesis with system Spanish voices.
+let currentAudio = null;
+
+function speakWithEdge(text, voiceId, rate) {
+  return synthesize(text, voiceId, rate).then((blob) => {
+    currentAudio?.pause();
+    currentAudio = new Audio(URL.createObjectURL(blob));
+    return currentAudio.play();
+  });
 }
 
-function selectedVoice() {
-  const uri = store.get("voice_uri", "");
-  return speechSynthesis.getVoices().find((v) => v.voiceURI === uri) || null;
-}
-
-function speakText(text) {
+function speakWithSystem(text) {
   if (!("speechSynthesis" in window)) return;
-  speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text.replace(/\([^)]*\)/g, " ")); // skip corrections
+  const uri = store.get("system_voice_uri", "");
+  const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "es-ES";
-  const voice = selectedVoice();
+  const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === uri);
   if (voice) utter.voice = voice;
   utter.rate = parseFloat(store.get("rate", "1"));
   speechSynthesis.speak(utter);
+}
+
+function speakText(text) {
+  const clean = text.replace(/\([^)]*\)/g, " "); // skip correction notes
+  const voiceId = VOICES[store.get("voice_key", "dalia")][1];
+  const rate = parseFloat(store.get("rate", "1"));
+  speechSynthesis.cancel();
+  speakWithEdge(clean, voiceId, rate).catch(() => speakWithSystem(clean));
 }
 
 // ---------- stt ----------
@@ -228,7 +241,7 @@ function openSettings() {
 $("settingsBtn").addEventListener("click", openSettings);
 $("closeSettingsBtn").addEventListener("click", () => {
   store.set("groq_key", $("apiKey").value.trim());
-  store.set("voice_uri", $("voiceSelect").value);
+  store.set("voice_key", $("voiceSelect").value);
   store.set("rate", $("rateRange").value);
   $("settingsModal").classList.add("hidden");
 });
@@ -242,22 +255,17 @@ $("clearChatBtn").addEventListener("click", () => {
 
 function populateVoices() {
   const select = $("voiceSelect");
-  const voices = getSpanishVoices();
   select.innerHTML = "";
-  if (!voices.length) {
-    select.innerHTML = '<option value="">(no hay voces españolas en este sistema)</option>';
-    return;
-  }
-  for (const v of voices) {
+  for (const [key, [label]] of Object.entries(VOICES)) {
     const opt = document.createElement("option");
-    opt.value = v.voiceURI;
-    opt.textContent = `${v.name} (${v.lang})`;
+    opt.value = key;
+    opt.textContent = label;
     select.appendChild(opt);
   }
-  const saved = store.get("voice_uri", "");
-  select.value = voices.some((v) => v.voiceURI === saved) ? saved : voices[0].voiceURI;
+  const saved = store.get("voice_key", "dalia");
+  select.value = VOICES[saved] ? saved : "dalia";
 }
-speechSynthesis.onvoiceschanged = populateVoices;
+speechSynthesis.onvoiceschanged = () => {}; // system voices only used as fallback
 
 $("rateRange").addEventListener("input", (e) => {
   $("rateVal").textContent = parseFloat(e.target.value).toFixed(2).replace(/0$/, "");

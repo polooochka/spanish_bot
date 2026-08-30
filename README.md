@@ -66,7 +66,7 @@ The same tutor as a static website, deployable on **GitHub Pages** with no backe
 
 ### Run locally
 ```
-python -m http.server -d web
+python -m http.server -d docs
 # open http://localhost:8000
 ```
 

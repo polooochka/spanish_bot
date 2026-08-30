@@ -3,3 +3,4 @@ __pycache__/
 .env
 users/
 test_voice.mp3
+worker/.wrangler/
